@@ -37,7 +37,7 @@ solana-system-program = { workspace = true }
 solana-transaction = { workspace = true, features = ["blake3"] }
 solana-transaction-error = { workspace = true }
 spl-associated-token-account = { workspace = true }
-spl-token = { path ="/home/atreyrachit23/agave/token/program" }
+spl-token = { path = "../../../token/program" }
 termcolor = { workspace = true }
 
 [dev-dependencies]
