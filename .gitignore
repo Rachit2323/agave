@@ -13,13 +13,7 @@ target/
 
 .cache
 
-# log files
-*.log
-log-*.txt
-log-*/
-!log-collector/
-!log-analyzer/*
-!log-utils/
+
 
 # intellij files
 .idea/
