@@ -566,7 +566,7 @@ solana-zk-sdk = { path = "zk-sdk", version = "=3.0.0" }
 solana-zk-token-proof-program = { path = "programs/zk-token-proof", version = "=3.0.0" }
 solana-zk-token-sdk = { path = "zk-token-sdk", version = "=3.0.0" }
 spl-associated-token-account = {path = "associated-token-account/program" }
-spl-generic-token = { path = "libraries-generic-token-v1.0.1/generic-token" }
+spl-generic-token = { path = "libraries/generic-token" }
 spl-instruction-padding = "0.3.0"
 spl-memo = "6.0.0"
 spl-pod = "0.5.1"
