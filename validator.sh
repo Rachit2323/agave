@@ -3,93 +3,100 @@ set -euo pipefail
 
 LEDGER_DIR="./ledger"
 KEYS_DIR="./keys"
-FIXTURES_DIR="./fixtures"
-#STAKE_AMOUNT=499999900000000000  # 499,999,900 SOL in lamports
-INITIAL_STAKE=500000000000000000         # 1 SOL for genesis stake
-STAKE_KEY_NEW="$KEYS_DIR/stake-account-manual-keypair.json"
+INITIAL_STAKE=500000000000000000  # 500 SOL for genesis stake
 
+mkdir -p "$LEDGER_DIR" "$KEYS_DIR"
+
+# Key files (only one identity key used for everything)
 IDENTITY_KEY="$KEYS_DIR/identity-keypair.json"
 VOTE_KEY="$KEYS_DIR/vote-account-keypair.json"
 STAKE_KEY="$KEYS_DIR/stake-account-keypair.json"
-ID_PUB="$(solana-keygen pubkey "$IDENTITY_KEY")"
-VOTE_PUB="$(solana-keygen pubkey "$VOTE_KEY")"
-STAKE_PUB="$(solana-keygen pubkey "$STAKE_KEY")"
-FAUCET_PUB="$(solana-keygen pubkey "$KEYS_DIR/faucet-keypair.json")"
+FAUCET_KEY="$KEYS_DIR/faucet-keypair.json"
 
-echo "all keys here STAKE_KEY - $STAKE_KEY"
-echo "STAKE_PUB = $STAKE_PUB"
-echo "STAKE_KEY_NEW = $STAKE_KEY_NEW"
+# Generate keys if not exist
+[[ -f $IDENTITY_KEY ]] || solana-keygen new --no-passphrase -o "$IDENTITY_KEY"
+[[ -f $VOTE_KEY ]] || solana-keygen new --no-passphrase -o "$VOTE_KEY"
+[[ -f $STAKE_KEY ]] || solana-keygen new --no-passphrase -o "$STAKE_KEY"
+[[ -f $FAUCET_KEY ]] || solana-keygen new --no-passphrase -o "$FAUCET_KEY"
 
+# Public keys
+ID_PUB=$(solana-keygen pubkey "$IDENTITY_KEY")
+VOTE_PUB=$(solana-keygen pubkey "$VOTE_KEY")
+STAKE_PUB=$(solana-keygen pubkey "$STAKE_KEY")
+FAUCET_PUB=$(solana-keygen pubkey "$FAUCET_KEY")
 
-LOG_FILE="$LEDGER_DIR/solana-validator-$(basename "$IDENTITY_KEY" .json).log"
-PID_FILE="$LEDGER_DIR/production-validator.pid"
+LOG_FILE="$LEDGER_DIR/solana-validator.log"
+PID_FILE="$LEDGER_DIR/validator.pid"
 ROTATE_CONF="/etc/logrotate.d/solana-validator"
 
-echo "⏳ Creating genesis (initial stake: 1 SOL, supply:1B+)..."
+echo "🔧 Setting Solana CLI to local RPC..."
+solana config set --url http://127.0.0.1:8899
+
+echo "🧬 Creating genesis..."
 solana-genesis \
   --ledger "$LEDGER_DIR" \
-  --inflation pico \
   --bootstrap-validator "$ID_PUB" "$VOTE_PUB" "$STAKE_PUB" \
-  --bootstrap-validator-lamports 500000000000000000 \
-  --bootstrap-validator-stake-lamports $INITIAL_STAKE \
+  --bootstrap-validator-lamports "$INITIAL_STAKE" \
+  --bootstrap-validator-stake-lamports "$INITIAL_STAKE" \
   --faucet-pubkey "$FAUCET_PUB" \
-  --faucet-lamports 10000000 \
-  --hashes-per-tick 100 \
+  --faucet-lamports 10000000000 \
+  --hashes-per-tick auto \
   --cluster-type development
 
 echo "✅ Genesis created."
 
-echo "🚀 Starting production solana-validator from $LEDGER_DIR…"
-
+echo "🚀 Starting validator..."
 nohup agave-validator \
-  --ledger                        "$LEDGER_DIR" \
-  --identity                      "$IDENTITY_KEY" \
-  --vote-account                  "$VOTE_KEY" \
+  --ledger "$LEDGER_DIR" \
+  --identity "$IDENTITY_KEY" \
+  --vote-account "$VOTE_KEY" \
+  --rpc-bind-address 127.0.0.1 \
+  --rpc-port 8899 \
+  --gossip-port 8001 \
+  --dynamic-port-range 8000-8020 \
   --no-port-check \
-  --no-wait-for-vote-to-start-leader \
-  --limit-ledger-size             10000000000 \
   --full-rpc-api \
   --enable-rpc-transaction-history \
-  --account-index                 program-id \
-  --account-index                 spl-token-owner \
-  --account-index                 spl-token-mint \
-  --rpc-bind-address              0.0.0.0 \
-  --rpc-port                      8899 \
-  --snapshot-interval-slots       100 \
-  --use-snapshot-archives-at-startup always \
   --log - \
   >> "$LOG_FILE" 2>&1 &
 
 echo $! > "$PID_FILE"
-echo "✅ Production validator launched; PID=$(<"$PID_FILE")"
-echo "   Logs → $LOG_FILE"
+echo "✅ Validator launched. PID: $(<"$PID_FILE")"
 
-# Wait for RPC to be ready
-echo "⏳ Waiting for validator RPC to be ready..."
+echo "⏳ Waiting for RPC to be ready..."
 for i in {1..30}; do
-  if solana cluster-version > /dev/null 2>&1; then
-    echo "✅ Validator RPC is ready."
+  if curl -s -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' http://127.0.0.1:8899 | grep -q "ok"; then
+    echo "✅ RPC is ready."
     break
   fi
   sleep 2
 done
 
-# Create a new stake account for large delegation
-#echo "🔑 Creating stake account at $STAKE_KEY_NEW..."
-#solana-keygen new --no-bip39-passphrase -so "$STAKE_KEY_NEW" --force > /dev/null
-#STAKE_PUB_NEW=$(solana-keygen pubkey "$STAKE_KEY_NEW")
+echo "🪙 Airdropping 1000 SOL to identity..."
+solana airdrop 1000 "$ID_PUB" > /dev/null || echo "⚠️ Airdrop may have hit a rate limit."
 
-#echo "💸 Creating and delegating stake: $STAKE_AMOUNT lamports (499,999,900 SOL)..."
-#solana create-stake-account "$STAKE_KEY_NEW" $STAKE_AMOUNT --from "$IDENTITY_KEY"
-#solana delegate-stake "$STAKE_KEY_NEW" "$VOTE_PUB"
+echo "📥 Creating stake account..."
+if ! solana account "$STAKE_PUB" &> /dev/null; then
+  solana create-stake-account "$STAKE_KEY" 500 --from "$IDENTITY_KEY" > /dev/null
+else
+  echo "⚠️ Stake account $STAKE_PUB already exists. Skipping creation."
+fi
 
-#echo "✅ Stake account $STAKE_PUB_NEW created and delegated."
-#echo "   Remaining balance in validator: $(solana balance "$ID_PUB")"
 
-# Logrotate config (if running as root)
+echo "📤 Delegating stake to vote account..."
+solana delegate-stake "$STAKE_KEY" "$VOTE_PUB" > /dev/null
+
+echo "🧾 Checking vote account status..."
+solana vote-account "$VOTE_PUB"
+
+echo "📦 Checking validator block production..."
+solana block-production --limit 1
+
+echo "💰 Balance: $(solana balance "$ID_PUB")"
+
 if [[ $EUID -eq 0 && ! -f "$ROTATE_CONF" ]]; then
   cat > "$ROTATE_CONF" <<EOF
-$LEDGER_DIR/solana-validator-*.log {
+$LOG_FILE {
     daily
     rotate 1
     compress
@@ -98,7 +105,9 @@ $LEDGER_DIR/solana-validator-*.log {
     copytruncate
 }
 EOF
-  echo "✅ logrotate installed at $ROTATE_CONF"
+  echo "✅ logrotate installed."
 fi
 
-echo "🎉 All done. Validator and stake accounts are set up and running."
+echo "🎉 All done. Your single-node validator is running and producing blocks!"
+echo "  🔗 RPC URL: http://127.0.0.1:8899"
+echo "  🔍 Logs: $LOG_FILE"
