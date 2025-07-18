@@ -92,7 +92,7 @@ solana-version = { workspace = true }
 solana-vote = { workspace = true }
 solana-vote-program = { workspace = true }
 spl-generic-token = { workspace = true }
-spl-token = { path ="/home/atreyrachit23/agave/token/program", features = ["no-entrypoint"] }
+spl-token = { path = "../token/program", features = ["no-entrypoint"] }
 spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 stream-cancel = { workspace = true }
 thiserror = { workspace = true }

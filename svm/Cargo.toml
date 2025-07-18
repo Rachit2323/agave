@@ -119,7 +119,7 @@ solana-system-transaction = { workspace = true }
 solana-sysvar = { workspace = true }
 solana-transaction = { workspace = true, features = ["dev-context-only-utils"] }
 solana-transaction-context = { workspace = true, features = ["dev-context-only-utils"] }
-spl-token = { path ="/home/atreyrachit23/agave/token/program" }
+spl-token = { path = "../token/program" }
 test-case = { workspace = true }
 
 [lints]

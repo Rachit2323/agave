@@ -42,7 +42,7 @@ solana-transaction = { workspace = true }
 solana-transaction-status = { workspace = true }
 solana-version = { workspace = true }
 spl-associated-token-account = { workspace = true, features = ["no-entrypoint"] }
-spl-token = { path ="/home/atreyrachit23/agave/token/program" , features = ["no-entrypoint"] }
+spl-token = { path = "../token/program" , features = ["no-entrypoint"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 

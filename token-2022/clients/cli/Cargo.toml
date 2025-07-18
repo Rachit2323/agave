@@ -32,7 +32,7 @@ solana-sdk = "2.2.1"
 solana-system-interface = "1"
 solana-transaction-status = "2.3.4"
 spl-associated-token-account-client = { workspace = true }
-spl-token = { path ="/home/atreyrachit23/agave/token/program", features = ["no-entrypoint"] }
+spl-token = { path = "../../../token/program", features = ["no-entrypoint"] }
 spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 spl-token-client = { version = "0.16.1", path = "../rust-legacy" }
 spl-token-confidential-transfer-proof-generation = { version = "0.4.0", path = "../../confidential-transfer/proof-generation" }
